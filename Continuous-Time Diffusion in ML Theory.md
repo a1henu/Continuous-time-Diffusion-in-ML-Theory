@@ -1444,7 +1444,7 @@ Some key points to bridge the gap between theoretical analysis and empirical imp
 We have data points $x_{i} \sim p_{\text{data}}$. Given a (invertible) mapping that add noise to images $f: x_{t-1}\mapsto x_{t}$ such that $\lim_{T\to\infty}f^{T}(x_{0})\approx z\sim \mathcal{N}(0, \mathbf{I})$, if we have learned $\mu\approx f^{-1}$, we can generate any image distributed in $p_{\text{data}}$ by $\hat{x}=\mu^{T}(z)$, where $z\sim\mathcal{N}(0,\mathbf{I})$.
 
 In DDPM, we formulate $f: x_{t-1}\mapsto x_{t}=\alpha_{t}x_{t-1}+\beta_{t}\epsilon_{t}$, $\epsilon_{t}\sim\mathcal{N}(0,\mathbf{I})$. (Markov? Maybe helpful)
-Then we have $x_{T}=(\prod_{i=1}^{T}\alpha_{i})x_{0} + \sum_{i=1}^{T}(\prod_{j=i+1}^{T}\alpha_{j})\beta_{i}\epsilon_{i}$. If we have $\alpha_{i}^{2}+\beta_{i}^{2}=1$, then the noisy term $\sum_{i=1}^{T}(\prod_{j=i+1}^{T}\alpha_{j})\beta_{i}\epsilon_{i}\sim\mathcal{N}(0,1-(\prod_{i=1}^{T}\alpha_{i})^{2})$. Denote $\bar{\alpha}_{T} = \prod_{i=1}^{T}\alpha_{i}$, $\bar{\beta}_{T}=1-\bar{\alpha}_{T}^{2}$, then we can add noise by one step sampling:
+Then we have $x_{T}=(\prod_{i=1}^{T}\alpha_{i})x_{0} + \sum_{i=1}^{T}(\prod_{j=i+1}^{T}\alpha_{j})\beta_{i}\epsilon_{i}$. If we have $\alpha_{i}^{2}+\beta_{i}^{2}=1$, then the noisy term $\sum_{i=1}^{T}(\prod_{j=i+1}^{T}\alpha_{j})\beta_{i}\epsilon_{i}\sim\mathcal{N}(0,1-(\prod_{i=1}^{T}\alpha_{i})^{2})$. Denote $\bar{\alpha}_{T} = \prod_{i=1}^{T}\alpha_{i}$, $\bar{\beta}_{T}=\sqrt{1-\bar{\alpha}_{T}^{2}}$, then we can add noise by one step sampling:
 $$
 x_{T}=\bar{\alpha}_{T}x_{0} + \bar{\beta}_{T}\bar{\epsilon}_{T},\quad \bar{\epsilon}_{T}\sim\mathcal{N}(0,\mathbf{I})
 $$
@@ -1455,6 +1455,7 @@ Simple idea: Since we get $x_{t}$ by adding noise $x_{t}=\alpha_{t}x_{t-1}+\beta
 - Learn a model $\mu_{\theta}: x_{t}\mapsto x_{t-1}$, then $\theta=\mathop{\arg\min}_{\theta}\mathcal{L}=\mathop{\arg\min}_{\theta}\lVert x_{t-1}-\mu_{\theta}(x_{t})\rVert_{2}^{2}$
 - Formulate $\mu_{\theta}(x_{t})=\frac{1}{\alpha_{t}} (x_{t}-\beta_{t}\epsilon_{\theta}(x_{t}, t))$
 - Then we have the new objective $\mathcal{L}=\lVert x_{t-1}-\mu_{\theta}(x_{t})\rVert_{2}^{2}= (\frac{\beta_{t}}{\alpha_{t}})^{2} \lVert \epsilon_{t}-\epsilon_{\theta}(x_{t},t)\rVert_{2}^{2}$
+
 We can sample $x_{t}=\bar{\alpha}_{t}x_{0} + \bar{\beta}_{t}\bar{\epsilon}_{t}$. However, note that $\epsilon_{t}$ and $\bar{\epsilon}_{t}$ are not independent, so we sample $x_{t}=\alpha_{t}x_{t-1}+\beta_{t}\epsilon_{t}=\alpha_{t}(\bar{\alpha}_{t-1}x_{0}+\bar{\beta}_{t-1}\bar{\epsilon}_{t-1})+\beta_{t}\epsilon_{t}$
 Then the objective is (remove weight term): 
 $$\begin{align*}
@@ -1468,11 +1469,11 @@ $$\begin{align*}
 \alpha_{t}\bar{\beta}_{t-1}\bar{\epsilon}_{t-1} + \beta_{t}\epsilon_{t} &\sim \bar{\beta}_{t} \epsilon\\
 \beta_{t}\bar{\epsilon}_{t-1} - \alpha_{t}\bar{\beta}_{t-1}\epsilon_{t} &\sim \bar{\beta}_{t} \omega
 \end{align*}$$
-where $\epsilon, \omega \overset{\text{i.i.d.}}{\sim} \mathcal{N}(0,\mathbf{I})$. Then,
+where $\epsilon, \omega {\sim} \mathcal{N}(0,\mathbf{I})$. Then we could calculate,
 $$\epsilon\omega^{\top}=\frac{1}{\bar{\beta}_{t}^{2}}[ 
 \alpha_{t}\bar{\beta}_{t-1}\beta_{t}(\bar{\epsilon}_{t-1}\bar{\epsilon}_{t-1}^{\top}-\epsilon_{t}\epsilon_{t}^{\top}) + (\beta_{t}^{2} - \alpha_{t}^{2}\bar{\beta}_{t-1}^{2})\bar{\epsilon}_{t-1} \epsilon_{t}^{\top}
 ]$$
-So we have $\mathbb{E}(\epsilon\omega^{\top})=0$, i.e. $\epsilon\perp\omega$. The final objective is
+So we have $\mathbb{E}(\epsilon\omega^{\top})=0$, i.e. $\epsilon\perp\omega$. So the final objective is
 $$\begin{align*}
 \mathbb{E}(\mathcal{L}) 
 &=  \mathbb{E}_{\bar{\epsilon}_{t-1}, \epsilon_{t}\overset{\text{i.i.d.}}{\sim}\mathcal{N}(0,\mathbf{I})} [\lVert \epsilon_{t}-\epsilon_{\theta}(\bar{\alpha}_{t}x_{0}+\alpha_{t}\bar{\beta}_{t-1}\bar{\epsilon}_{t-1}+\beta_{t}\epsilon_{t},t)\rVert_{2}^{2}]\\
@@ -1481,7 +1482,7 @@ $$\begin{align*}
 ,t)\right\rVert_{2}^{2}\right]\\
 &= \frac{\beta_{t}^{2}}{\bar{\beta}_{t}^{2}} \mathbb{E}_{\epsilon\sim\mathcal{N}(0,\mathbf{I})} \left[\left\lVert
 \epsilon- \frac{\bar{\beta}_{t}^{2}}{\beta_{t}^{2}}\epsilon_{\theta}(\bar{\alpha}_{t}x_{0}+\bar{\beta}_{t}\epsilon,t) 
-\right\rVert_{2}^{2}\right]
+\right\rVert_{2}^{2}\right] + {{\text{some constant}}}
 \end{align*}
 $$
 And the empirical loss is
